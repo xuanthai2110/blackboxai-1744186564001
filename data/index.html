@@ -1,0 +1,98 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title>ESP32 PZEM-016 Monitor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial; margin: 0; padding: 20px; }
+    .card { background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .value { font-size: 24px; font-weight: bold; }
+    .unit { font-size: 16px; color: #666; }
+    canvas { max-width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>PZEM-016 Energy Monitor</h1>
+  <div class="grid">
+    <div class="card">
+      <h2>PZEM-016 #1</h2>
+      <div>Voltage: <span class="value" id="v1">0</span><span class="unit">V</span></div>
+      <div>Current: <span class="value" id="c1">0</span><span class="unit">A</span></div>
+      <div>Power: <span class="value" id="p1">0</span><span class="unit">W</span></div>
+      <div>Energy: <span class="value" id="e1">0</span><span class="unit">kWh</span></div>
+      <canvas id="chart1"></canvas>
+    </div>
+    <div class="card">
+      <h2>PZEM-016 #2</h2>
+      <div>Voltage: <span class="value" id="v2">0</span><span class="unit">V</span></div>
+      <div>Current: <span class="value" id="c2">0</span><span class="unit">A</span></div>
+      <div>Power: <span class="value" id="p2">0</span><span class="unit">W</span></div>
+      <div>Energy: <span class="value" id="e2">0</span><span class="unit">kWh</span></div>
+      <canvas id="chart2"></canvas>
+    </div>
+    <div class="card">
+      <h2>PZEM-016 #3</h2>
+      <div>Voltage: <span class="value" id="v3">0</span><span class="unit">V</span></div>
+      <div>Current: <span class="value" id="c3">0</span><span class="unit">A</span></div>
+      <div>Power: <span class="value" id="p3">0</span><span class="unit">W</span></div>
+      <div>Energy: <span class="value" id="e3">0</span><span class="unit">kWh</span></div>
+      <canvas id="chart3"></canvas>
+    </div>
+  </div>
+  <script>
+    // Initialize charts
+    const charts = {};
+    ['1', '2', '3'].forEach(num => {
+      const ctx = document.getElementById(`chart${num}`).getContext('2d');
+      charts[num] = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: Array(20).fill(''),
+          datasets: [{
+            label: 'Power (W)',
+            data: Array(20).fill(0),
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    });
+
+    // Update data every 2 seconds
+    setInterval(updateData, 2000);
+
+    async function updateData() {
+      try {
+        const response = await fetch('/data');
+        const data = await response.json();
+        
+        // Update values for all 3 PZEMs
+        for (let i = 1; i <= 3; i++) {
+          const pzem = data[`pzem${i}`];
+          if (pzem) {
+            document.getElementById(`v${i}`).textContent = pzem.voltage.toFixed(1);
+            document.getElementById(`c${i}`).textContent = pzem.current.toFixed(2);
+            document.getElementById(`p${i}`).textContent = pzem.power.toFixed(1);
+            document.getElementById(`e${i}`).textContent = pzem.energy.toFixed(2);
+            
+            // Update chart data
+            charts[i].data.datasets[0].data.shift();
+            charts[i].data.datasets[0].data.push(pzem.power);
+            charts[i].update();
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    }
+  </script>
+</body>
+</html>
